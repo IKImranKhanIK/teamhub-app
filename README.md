@@ -2,6 +2,8 @@
 
 A web application for teams to connect, compete, and celebrate each other. Built as a pre-work challenge submission using Next.js 14, TypeScript, and Tailwind CSS.
 
+**Live demo:** https://teamhub-app-eight.vercel.app
+
 ---
 
 ## What It Does and Why
