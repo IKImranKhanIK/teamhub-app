@@ -11,6 +11,8 @@ export function loadCrew(): CrewMember[] {
   try {
     return JSON.parse(localStorage.getItem(KEYS.crew) || "[]");
   } catch {
+    console.warn("[storage] Corrupt crew data — resetting to default.");
+    localStorage.removeItem(KEYS.crew);
     return [];
   }
 }
@@ -24,6 +26,8 @@ export function loadStats(): Record<string, PlayerStats> {
   try {
     return JSON.parse(localStorage.getItem(KEYS.stats) || "{}");
   } catch {
+    console.warn("[storage] Corrupt stats data — resetting to default.");
+    localStorage.removeItem(KEYS.stats);
     return {};
   }
 }
@@ -37,6 +41,8 @@ export function loadKudos(): Kudos[] {
   try {
     return JSON.parse(localStorage.getItem(KEYS.kudos) || "[]");
   } catch {
+    console.warn("[storage] Corrupt kudos data — resetting to default.");
+    localStorage.removeItem(KEYS.kudos);
     return [];
   }
 }
