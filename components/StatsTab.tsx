@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { loadCrew, loadStats, loadKudos } from "@/lib/storage";
 import { CrewMember, Kudos, PlayerStats } from "@/lib/types";
+import LoadingSpinner from "./LoadingSpinner";
 
 function calcWinRate(s: PlayerStats): number {
   const games = s.wins + s.losses + s.draws;
@@ -20,11 +21,14 @@ export default function StatsTab() {
   const [crew, setCrew] = useState<CrewMember[]>([]);
   const [stats, setStats] = useState<Record<string, PlayerStats>>({});
   const [kudos, setKudos] = useState<Kudos[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setCrew(loadCrew());
     setStats(loadStats());
     setKudos(loadKudos());
+    const timer = setTimeout(() => setIsLoading(false), 600);
+    return () => clearTimeout(timer);
   }, []);
 
   // Total games: each win = 1 game; draws counted twice in storage so divide by 2
@@ -50,6 +54,7 @@ export default function StatsTab() {
     : null;
 
   const sortedKudos = [...kudos].sort((a, b) => b.timestamp - a.timestamp);
+  const hasNoData = crew.length === 0 && Object.keys(stats).length === 0 && kudos.length === 0;
 
   const cards = [
     { label: "Crew Members",  value: crew.length,                                    icon: "👥" },
@@ -59,6 +64,28 @@ export default function StatsTab() {
     { label: "Most Cheered",  value: topReceiver  ? topReceiver[0].split(" ")[0]: "—", icon: "📣" },
     { label: "Avg Win Rate",  value: avgWinRate !== null ? `${avgWinRate}%`     : "—", icon: "📊" },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  if (hasNoData) {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-6">Team Stats</h2>
+        <div className="text-center py-20 text-slate-500">
+          <p className="text-4xl mb-3">📊</p>
+          <p className="text-lg font-medium text-slate-300">No data yet</p>
+          <p className="text-sm mt-1 mb-5">Add crew members and start playing to see your stats.</p>
+          <p className="text-xs text-slate-600">Head to the Crew tab to get started.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

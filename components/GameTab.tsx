@@ -2,35 +2,18 @@
 
 import { useState, useEffect, useCallback } from "react";
 import notify from "./Toast";
+import LoadingSpinner from "./LoadingSpinner";
 import { CrewMember, PlayerStats } from "@/lib/types";
 import { loadCrew, loadStats, saveStats } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
+import { checkWinner, type BoardCell } from "@/lib/gameLogic";
 
 // ─── Types ────────────────────────────────────────────────
 
-type BoardCell  = "X" | "O" | null;
 type GameStatus = "idle" | "playing" | "won" | "draw";
 type GameMode   = "ttt" | "rps";
 type RPSChoice  = "rock" | "paper" | "scissors";
 type RPSPhase   = "idle" | "x-picking" | "passing" | "o-picking" | "countdown" | "reveal";
-
-// ─── TTT helpers ──────────────────────────────────────────
-
-const WIN_LINES = [
-  [0, 1, 2], [3, 4, 5], [6, 7, 8],
-  [0, 3, 6], [1, 4, 7], [2, 5, 8],
-  [0, 4, 8], [2, 4, 6],
-];
-
-function checkWinner(board: BoardCell[]): { winner: "X" | "O" | null; line: number[] } {
-  for (const line of WIN_LINES) {
-    const [a, b, c] = line;
-    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-      return { winner: board[a] as "X" | "O", line };
-    }
-  }
-  return { winner: null, line: [] };
-}
 
 // ─── RPS helpers ──────────────────────────────────────────
 
@@ -73,6 +56,7 @@ export default function GameTab() {
   const [playerX, setPlayerX] = useState("");
   const [playerO, setPlayerO] = useState("");
   const [stats, setStats] = useState<Record<string, PlayerStats>>({});
+  const [isLoading, setIsLoading] = useState(true);
 
   // TTT state
   const [board, setBoard] = useState<BoardCell[]>(Array(9).fill(null));
@@ -94,6 +78,8 @@ export default function GameTab() {
   useEffect(() => {
     setCrew(loadCrew());
     setStats(loadStats());
+    const timer = setTimeout(() => setIsLoading(false), 600);
+    return () => clearTimeout(timer);
   }, []);
 
   // ─── Shared stat recorder ─────────────────────────────────
@@ -246,6 +232,14 @@ export default function GameTab() {
   const playersDisabled = tttStatus === "playing" || (gameMode === "rps" && rpsPhase !== "idle");
 
   // ─── Render ───────────────────────────────────────────────
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 items-start justify-center">
@@ -506,7 +500,11 @@ export default function GameTab() {
         <p className="text-[10px] text-slate-600 mb-4">TTT + RPS combined</p>
 
         {leaderboard.length === 0 ? (
-          <p className="text-xs text-slate-500 text-center py-6">No games yet — make your move</p>
+          <div className="text-center py-8 text-slate-500">
+            <p className="text-2xl mb-2">🎮</p>
+            <p className="text-xs font-medium text-slate-400">No games played yet</p>
+            <p className="text-xs mt-1">Select players and start a match</p>
+          </div>
         ) : (
           <div className="space-y-1">
             <div className="flex items-center gap-2 px-2 pb-1 mb-1 border-b border-[#2d3348]">

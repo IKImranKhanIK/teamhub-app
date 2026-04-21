@@ -5,6 +5,7 @@ import notify from "./Toast";
 import { CrewMember } from "@/lib/types";
 import { loadCrew } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
+import LoadingSpinner from "./LoadingSpinner";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -445,8 +446,21 @@ function MoodSection({ crew }: { crew: CrewMember[] }) {
 
 export default function VibesTab() {
   const [crew, setCrew] = useState<CrewMember[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => { setCrew(loadCrew()); }, []);
+  useEffect(() => {
+    setCrew(loadCrew());
+    const timer = setTimeout(() => setIsLoading(false), 600);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

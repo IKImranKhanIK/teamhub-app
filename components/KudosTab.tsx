@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import notify from "./Toast";
+import LoadingSpinner from "./LoadingSpinner";
 import { CrewMember, Kudos } from "@/lib/types";
 import { loadCrew, loadKudos, saveKudos } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
@@ -166,6 +167,7 @@ export default function KudosTab() {
   const [crew, setCrew] = useState<CrewMember[]>([]);
   const [kudos, setKudos] = useState<Kudos[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     setCrew(loadCrew());
@@ -176,6 +178,8 @@ export default function KudosTab() {
       setKudos(DEFAULT_KUDOS);
       saveKudos(DEFAULT_KUDOS);
     }
+    const timer = setTimeout(() => setIsLoading(false), 600);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleSubmit = (data: Omit<Kudos, "id" | "timestamp">) => {
@@ -199,6 +203,14 @@ export default function KudosTab() {
     notify.success("Kudos removed.");
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -219,8 +231,14 @@ export default function KudosTab() {
       {kudos.length === 0 ? (
         <div className="text-center py-20 text-slate-500">
           <p className="text-4xl mb-3">🌟</p>
-          <p className="text-lg font-medium">No kudos yet</p>
-          <p className="text-sm mt-1">Be the first to celebrate a teammate!</p>
+          <p className="text-lg font-medium text-slate-300">No kudos yet</p>
+          <p className="text-sm mt-1 mb-5">Be the first to shout someone out.</p>
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20"
+          >
+            ✨ Give Kudos
+          </button>
         </div>
       ) : (
         <>

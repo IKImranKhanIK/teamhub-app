@@ -4,16 +4,19 @@ import { useState, useEffect } from "react";
 import CrewTab from "@/components/CrewTab";
 import GameTab from "@/components/GameTab";
 import KudosTab from "@/components/KudosTab";
+import ChatTab from "@/components/ChatTab";
 import StatsTab from "@/components/StatsTab";
 import VibesTab from "@/components/VibesTab";
 import ActivityFeed from "@/components/ActivityFeed";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
-type Tab = "crew" | "game" | "kudos" | "stats" | "vibes" | "activity";
+type Tab = "crew" | "game" | "kudos" | "chat" | "stats" | "vibes" | "activity";
 
 const tabs: { id: Tab; label: string; icon: string; mobileOnly?: boolean }[] = [
   { id: "crew",     label: "Crew",     icon: "👥" },
   { id: "game",     label: "Game",     icon: "🎮" },
   { id: "kudos",    label: "Kudos",    icon: "🌟" },
+  { id: "chat",     label: "Chat",     icon: "💬" },
   { id: "stats",    label: "Stats",    icon: "📊" },
   { id: "vibes",    label: "Vibes",    icon: "✨" },
   { id: "activity", label: "Activity", icon: "📋", mobileOnly: true },
@@ -102,18 +105,21 @@ export default function Home() {
       <div className="flex flex-1 min-h-0">
         {/* Main content */}
         <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-8">
-          {activeTab === "crew"     && <CrewTab />}
-          {activeTab === "game"     && <GameTab />}
-          {activeTab === "kudos"    && <KudosTab />}
-          {activeTab === "stats"    && <StatsTab />}
-          {activeTab === "vibes"    && <VibesTab />}
+          {activeTab === "crew"     && <ErrorBoundary name="Crew"><CrewTab /></ErrorBoundary>}
+          {activeTab === "game"     && <ErrorBoundary name="Game"><GameTab /></ErrorBoundary>}
+          {activeTab === "kudos"    && <ErrorBoundary name="Kudos"><KudosTab /></ErrorBoundary>}
+          {activeTab === "chat"     && <ErrorBoundary name="Chat"><ChatTab /></ErrorBoundary>}
+          {activeTab === "stats"    && <ErrorBoundary name="Stats"><StatsTab /></ErrorBoundary>}
+          {activeTab === "vibes"    && <ErrorBoundary name="Vibes"><VibesTab /></ErrorBoundary>}
           {activeTab === "activity" && (
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-6">Activity</h2>
-              <div className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl p-5">
-                <ActivityFeed />
+            <ErrorBoundary name="Activity">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-6">Activity</h2>
+                <div className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl p-5">
+                  <ActivityFeed />
+                </div>
               </div>
-            </div>
+            </ErrorBoundary>
           )}
         </main>
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import notify from "./Toast";
+import LoadingSpinner from "./LoadingSpinner";
 import { CrewMember, AvailabilityStatus } from "@/lib/types";
 import { loadCrew, saveCrew } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
@@ -133,6 +134,7 @@ function AddMemberModal({ onClose, onAdd }: ModalProps) {
 export default function CrewTab() {
   const [crew, setCrew] = useState<CrewMember[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const stored = loadCrew();
@@ -142,6 +144,8 @@ export default function CrewTab() {
       setCrew(DEFAULT_CREW);
       saveCrew(DEFAULT_CREW);
     }
+    const timer = setTimeout(() => setIsLoading(false), 600);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleAdd = (member: Omit<CrewMember, "id">) => {
@@ -174,6 +178,14 @@ export default function CrewTab() {
   };
 
   const availableCount = crew.filter(m => (m.status ?? "available") === "available").length;
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-24">
+        <LoadingSpinner />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -209,8 +221,14 @@ export default function CrewTab() {
       {crew.length === 0 ? (
         <div className="text-center py-20 text-slate-500">
           <p className="text-4xl mb-3">👥</p>
-          <p className="text-lg font-medium">No crew members yet</p>
-          <p className="text-sm mt-1">Add your first teammate to get started.</p>
+          <p className="text-lg font-medium text-slate-300">No crew yet</p>
+          <p className="text-sm mt-1 mb-5">Add your first teammate to get started.</p>
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white text-sm font-medium transition-colors shadow-lg shadow-indigo-500/20"
+          >
+            + Add Teammate
+          </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
