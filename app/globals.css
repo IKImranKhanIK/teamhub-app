@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0f1117;
+  --foreground: #e2e8f0;
+}
+
+body {
+  background-color: #0f1117;
+  color: #e2e8f0;
+  font-family: 'Inter', system-ui, Arial, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Light mode overrides ─────────────────────────────────────────────────── */
+/* Applied when <html class="light"> is set via the theme toggle.              */
+/* Targets Tailwind's escaped arbitrary-value class names directly.            */
+
+html.light body {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Backgrounds */
+html.light .bg-\[\#0f1117\]  { background-color: #f1f5f9; }
+html.light .bg-\[\#1a1f2e\]  { background-color: #ffffff; }
+html.light .bg-\[\#2d3348\]  { background-color: #e2e8f0; }
+html.light .bg-\[\#252b3d\]  { background-color: #e8edf2; }
+html.light .bg-\[\#1c2130\]  { background-color: #e8edf2; }
+html.light .bg-\[\#1e2438\]  { background-color: #e8edf2; }
+
+/* Winning cells (dark green tint → light green tint) */
+html.light .bg-emerald-900\/25 { background-color: #d1fae5; }
+
+/* Borders */
+html.light .border-\[\#2d3348\] { border-color: #e2e8f0; }
+html.light .border-b.border-\[\#2d3348\] { border-color: #e2e8f0; }
+html.light .border-t.border-\[\#2d3348\] { border-color: #e2e8f0; }
+html.light .border-l.border-\[\#2d3348\] { border-color: #e2e8f0; }
+
+/* Dividers (KudosTab, StatsTab) */
+html.light .divide-\[\#2d3348\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #e2e8f0;
+}
+
+/* Text */
+html.light .text-white     { color: #0f172a; }
+html.light .text-slate-200 { color: #1e293b; }
+html.light .text-slate-300 { color: #334155; }
+html.light .text-slate-400 { color: #475569; }
+
+/* Hover backgrounds */
+html.light .hover\:bg-\[\#2d3348\]:hover  { background-color: #e2e8f0; }
+html.light .hover\:bg-\[\#1a1f2e\]:hover  { background-color: #f1f5f9; }
+html.light .hover\:bg-\[\#252b3d\]:hover  { background-color: #e8edf2; }
+html.light .hover\:bg-\[\#1c2130\]:hover  { background-color: #e8edf2; }
+html.light .hover\:bg-\[\#1e2438\]:hover  { background-color: #e8edf2; }
+
+/* Focus borders — keep indigo, already visible in both modes */
+
+/* Select / option native elements inherit overridden bg/text */
