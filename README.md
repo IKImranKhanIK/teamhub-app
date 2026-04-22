@@ -145,6 +145,67 @@ Lightweight toast notification library. Every user action (add crew, send kudos,
 
 ---
 
+## Accessibility
+
+Accessibility was treated as a core engineering requirement, not an afterthought. This is particularly important given Apple's deep commitment to accessibility across all its platforms and products.
+
+### Standard
+
+The app targets **WCAG 2.1 AA** compliance — the professional standard for web accessibility.
+
+### What is implemented
+
+**Semantic HTML and ARIA**
+- `<nav aria-label="Main navigation">` for the tab bar
+- `role="tablist"`, `role="tab"`, `aria-selected`, and `role="tabpanel"` on the tab switcher with `aria-labelledby` wiring
+- `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` on all modals
+- `role="grid"` and `role="gridcell"` with descriptive `aria-label` on every game board cell (e.g. "Row 1 Column 2, empty")
+- `aria-live="polite"` on the game status bar so screen readers announce turn changes automatically
+- `role="alert"` on the winner/draw announcement for immediate screen reader notification
+- `role="log"` and `aria-live="polite"` on the chat message list
+- `role="feed"` and `role="article"` on the activity feed
+- Proper `<table>` with `<thead>`, `<th scope="col">`, and `<caption>` on the stats leaderboard
+- `aria-label` on all icon-only buttons, profile cards, kudos cards, reaction buttons, and emoji pickers
+- `aria-hidden="true"` on all decorative emoji and bullet dots
+- `role="img"` with `aria-label` on meaningful emoji
+
+**Keyboard navigation**
+- Full Tab key navigation across all interactive elements
+- Arrow key navigation between tab switcher tabs (left/right)
+- Arrow key navigation across the Tic Tac Toe game board (up/down/left/right)
+- Enter and Space to select a game cell
+- Escape key closes all modals
+- Focus trapped inside modals while open — Tab cycles only through modal elements
+- Focus returns to the trigger button when a modal closes
+
+**Focus indicators**
+- `:focus-visible` rule in `globals.css`: `outline: 2px solid #f5c518; outline-offset: 2px`
+- Visible on all interactive elements in both dark and light mode
+- No `outline: none` without a replacement style anywhere in the codebase
+
+**Color contrast**
+- All body text meets the 4.5:1 minimum contrast ratio against its background
+- Large text meets the 3:1 minimum
+- Status indicators use both a colored dot and a text label — never color alone
+
+**Screen reader support**
+- Skip link at the top of the page: "Skip to main content" — visible only on focus, links to `<main id="main-content">`
+- `<html lang="en">` set in the root layout
+- Page title: "TeamHub — Team Connection App"
+- Loading spinner has `role="status"` and `aria-label="Loading"`
+- All empty states have descriptive text — no blank space without context
+- Toast notifications use `role="status"` and `aria-live="polite"`
+
+**Touch and mobile (Apple HIG)**
+- All tap targets meet the **44×44px minimum** specified in Apple's Human Interface Guidelines
+- All text inputs have `font-size: 16px` minimum to prevent iOS auto-zoom on focus
+- No horizontal scroll on any tab at any screen width
+
+**Reduced motion**
+- `@media (prefers-reduced-motion: reduce)` block in `globals.css` disables all animations and transitions for users who have enabled this system preference
+
+---
+
 ## What I Would Add Given More Time
 
 1. **Backend persistence** — Replace `localStorage` with a database (e.g. Supabase or PlanetScale) so data is shared across devices and team members in real time.
