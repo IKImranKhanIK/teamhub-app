@@ -9,7 +9,7 @@ A full-featured web application for distributed teams to connect, compete, celeb
 
 ## What It Does and Why
 
-TeamHub solves the problem of distributed teams feeling disconnected. Everything lives in one place — no sign-up, no backend, no configuration required.
+TeamHub solves the problem of distributed teams feeling disconnected. Everything lives in one place — no sign-up, no configuration required.
 
 | Tab | What it does |
 |-----|-------------|
@@ -19,20 +19,20 @@ TeamHub solves the problem of distributed teams feeling disconnected. Everything
 | **Chat** | Team message board with per-message reactions (👍 ❤️ 😂 🔥). Sender is selected from the Crew roster. Messages auto-scroll to the bottom and persist across refreshes. |
 | **Stats** | Dashboard showing crew size, games played, kudos sent, top player, most cheered teammate, and average win rate. Includes a full W/L/D leaderboard and a recent kudos wall. |
 | **Vibes** | Three engagement features in one tab: a team poll (create, vote, live progress bars), a date-seeded daily icebreaker question with member answers, and a per-person per-day mood check-in with a team vibe summary. |
-| **Activity** | Timestamped feed of every action taken across all tabs — joins, games, kudos, polls, mood check-ins. Updates in real time on the same page via a custom DOM event; also available as a collapsible sidebar on desktop. |
+| **Activity** | Timestamped feed of every action taken across all tabs — joins, games, kudos, polls, mood check-ins. Updates in real time via a Supabase subscription — visible to all connected users instantly; also available as a collapsible sidebar on desktop. |
 
 **Cross-cutting features:**
-- Dark / light mode toggle — persists to `localStorage`, applies via `html.light` class with CSS overrides so zero component changes were needed
+- Dark / light mode toggle — preference persists to `localStorage`, applies via `html.light` class with CSS overrides so zero component changes were needed
 - Error boundaries on every tab — a single tab crash shows a fallback card with a Try-again button instead of breaking the whole app
-- 600 ms loading spinner on every tab — prevents a flash of empty content before `localStorage` is read
+- Loading spinner on every tab — prevents a flash of empty content while data loads from the database
 
-All data persists to `localStorage` — no backend required, no sign-up needed.
+All data persists to a **Supabase PostgreSQL database** — shared across all team members in real time, no sign-up needed.
 
 ---
 
 ## How to Run Locally
 
-**Prerequisites:** Node.js 18+, npm
+**Prerequisites:** Node.js 18+, npm, a free [Supabase](https://supabase.com) project
 
 ```bash
 # 1. Clone the repository
@@ -42,10 +42,14 @@ cd teamhub-app
 # 2. Install dependencies
 npm install
 
-# 3. Start the development server
+# 3. Add your Supabase credentials
+echo "NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co" >> .env.local
+echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key" >> .env.local
+
+# 4. Start the development server
 npm run dev
 
-# 4. Open in browser
+# 5. Open in browser
 # http://localhost:3000
 ```
 
@@ -87,11 +91,12 @@ teamhub-app/
 │   └── Toast.tsx         # react-hot-toast wrapper
 ├── lib/
 │   ├── types.ts          # Shared TypeScript interfaces
-│   ├── storage.ts        # localStorage load/save helpers
-│   ├── activity.ts       # Activity logger + custom DOM event dispatch
+│   ├── supabase.ts       # Supabase client initialisation
+│   ├── storage.ts        # Async load/save helpers (crew, kudos, stats)
+│   ├── activity.ts       # Activity logger using Supabase
 │   └── gameLogic.ts      # Pure TTT functions (checkWinner, isDraw)
 ├── hooks/
-│   └── useLocalStorage.ts # Generic typed localStorage hook
+│   └── useLocalStorage.ts # Generic typed localStorage hook (theme + tests)
 └── __tests__/
     ├── GameLogic.test.ts
     ├── useLocalStorage.test.ts
@@ -104,7 +109,7 @@ teamhub-app/
 ## Technical Decisions and Reasoning
 
 ### Next.js 14 App Router
-Chosen for its file-based routing, React Server Components support, and industry-standard positioning for production React apps. The App Router gives clean separation of concerns and straightforward future flexibility for API routes if a backend were added.
+Chosen for its file-based routing, React Server Components support, and industry-standard positioning for production React apps. The App Router gives clean separation of concerns and straightforward flexibility for API routes.
 
 ### TypeScript
 All components and utilities are fully typed. Core interfaces (`CrewMember`, `PlayerStats`, `Kudos`, `AvailabilityStatus`) are defined in `lib/types.ts` and shared across the app. This prevents entire classes of runtime errors and makes the codebase self-documenting.
@@ -112,11 +117,11 @@ All components and utilities are fully typed. Core interfaces (`CrewMember`, `Pl
 ### Tailwind CSS
 Utility-first CSS for rapid UI development. The dark theme uses a consistent custom palette (`#0f1117` background, `#1a1f2e` card surface, `#2d3348` borders). Light mode is implemented as a single CSS override block in `globals.css` targeting Tailwind's escaped arbitrary-value class names directly — no component changes required.
 
-### localStorage for Persistence
-A deliberate choice to keep the app self-contained and deployable without a backend. Each data slice has its own key (`teamhub_crew`, `teamhub_stats`, `teamhub_kudos`, `teamhub_chat`, `teamhub_activity`, `teamhub_poll`, `teamhub_mood`, `teamhub_icebreaker`). All load/save logic is centralised in `lib/storage.ts` with `try/catch` wrapping every `JSON.parse` — corrupt keys are reset and warned rather than crashing.
+### Supabase for Persistence
+All eight data slices (crew, kudos, stats, messages, activity, poll, icebreaker, mood) are stored in a Supabase PostgreSQL database. `lib/storage.ts` contains async load/save helpers that map between the app's TypeScript interfaces and the DB column names. Saves are fire-and-forget with `.catch(console.error)` — optimistic UI updates keep interactions feeling instant.
 
-### Cross-component Activity Feed
-`ActivityFeed` is a sibling component to all the tabs, not a parent. Rather than prop-drilling or adding a context layer, `logActivity()` writes to `localStorage` and fires `window.dispatchEvent(new CustomEvent("teamhub-activity"))`. The feed component listens for this event and re-reads storage — instant updates with zero shared state.
+### Real-time Chat and Activity Feed
+Chat and Activity use Supabase `postgres_changes` subscriptions. Any insert into the `messages` or `activity` table is broadcast to all connected clients immediately — no polling, no websocket boilerplate. The theme preference (dark/light) is the one thing that intentionally stays in `localStorage` since it is per-device, not per-team.
 
 ### Error Boundaries
 React error boundaries must be class components (no hooks equivalent). `ErrorBoundary` wraps every tab individually so a crash in one tab shows a localised fallback card and a Try-again reset button, leaving all other tabs functional.
@@ -208,13 +213,12 @@ The app targets **WCAG 2.1 AA** compliance — the professional standard for web
 
 ## What I Would Add Given More Time
 
-1. **Backend persistence** — Replace `localStorage` with a database (e.g. Supabase or PlanetScale) so data is shared across devices and team members in real time.
-2. **Real-time multiplayer** — WebSockets (via Pusher or Ably) so TTT and RPS work across two browsers without passing a phone.
-3. **Authentication** — Simple OAuth (Google/GitHub) so each team member has a verified identity tied to their profile, rather than a dropdown.
-4. **Push notifications** — Browser push notifications when someone sends you kudos or mentions you in chat.
-5. **Chat threads and @mentions** — Reply threading and mention highlighting in the Chat tab.
-6. **Poll history** — Archive past polls and display participation rates over time.
-7. **Leaderboard history** — Track win/loss trends over time with a small sparkline chart per player.
+1. **Authentication** — Simple OAuth (Google/GitHub) so each team member has a verified identity tied to their profile, rather than a dropdown.
+2. **Real-time multiplayer** — TTT and RPS across two browsers without passing a phone, using Supabase real-time game state.
+3. **Push notifications** — Browser push notifications when someone sends you kudos or mentions you in chat.
+4. **Chat threads and @mentions** — Reply threading and mention highlighting in the Chat tab.
+5. **Poll history** — Archive past polls and display participation rates over time.
+6. **Leaderboard history** — Track win/loss trends over time with a small sparkline chart per player.
 
 ---
 
@@ -227,6 +231,7 @@ The app targets **WCAG 2.1 AA** compliance — the professional standard for web
 | TypeScript | 5.x | Type safety |
 | Tailwind CSS | 3.x | Utility-first styling |
 | react-hot-toast | 2.x | Toast notifications |
+| @supabase/supabase-js | 2.x | Database client + real-time subscriptions |
 | Jest | 29.x | Test runner |
 | ts-jest | 29.x | TypeScript transform for Jest |
 | @testing-library/react | 16.x | Component rendering for tests |
