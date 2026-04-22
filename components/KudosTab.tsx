@@ -6,6 +6,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import { CrewMember, Kudos } from "@/lib/types";
 import { loadCrew, loadKudos, saveKudos } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
+import { supabase } from "@/lib/supabase";
 
 const KUDOS_EMOJIS = ["🌟", "🚀", "💡", "🎯", "🔥", "💎", "👏", "🙌", "⭐", "💪", "🏆", "✨"];
 
@@ -180,6 +181,15 @@ export default function KudosTab() {
       }
       setIsLoading(false);
     });
+
+    const channel = supabase
+      .channel("kudos-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "kudos" }, () => {
+        loadKudos().then(setKudos);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleSubmit = (data: Omit<Kudos, "id" | "timestamp">) => {

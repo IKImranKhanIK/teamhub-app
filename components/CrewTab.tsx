@@ -6,6 +6,7 @@ import LoadingSpinner from "./LoadingSpinner";
 import { CrewMember, AvailabilityStatus } from "@/lib/types";
 import { loadCrew, saveCrew } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
+import { supabase } from "@/lib/supabase";
 
 const EMOJI_OPTIONS = [
   "👩‍💻", "👨‍💻", "🧑‍💻", "👩‍🎨", "👨‍🎨", "🧑‍🎨",
@@ -146,6 +147,15 @@ export default function CrewTab() {
       }
       setIsLoading(false);
     });
+
+    const channel = supabase
+      .channel("crew-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "crew" }, () => {
+        loadCrew().then(setCrew);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleAdd = (member: Omit<CrewMember, "id">) => {

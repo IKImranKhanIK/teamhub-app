@@ -122,7 +122,18 @@ function PollSection({ crew }: { crew: CrewMember[] }) {
   const [showModal, setShowModal] = useState(false);
   const [voter, setVoter] = useState("");
 
-  useEffect(() => { loadPoll().then(setPoll); }, []);
+  useEffect(() => {
+    loadPoll().then(setPoll);
+
+    const channel = supabase
+      .channel("poll-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "poll" }, () => {
+        loadPoll().then(setPoll);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const vote = (idx: number) => {
     if (!voter || !poll) return;
@@ -305,6 +316,15 @@ function IcebreakerSection({ crew }: { crew: CrewMember[] }) {
         saveIcebreaker(fresh).catch(console.error);
       }
     });
+
+    const channel = supabase
+      .channel("icebreaker-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "icebreaker" }, () => {
+        loadIcebreaker(todayStr()).then(s => { if (s) setState(s); });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const nextQuestion = () => {
@@ -398,6 +418,15 @@ function MoodSection({ crew }: { crew: CrewMember[] }) {
         saveMood(fresh).catch(console.error);
       }
     });
+
+    const channel = supabase
+      .channel("mood-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "mood" }, () => {
+        loadMood(todayStr()).then(s => { if (s) setState(s); });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const checkIn = (mood: string) => {

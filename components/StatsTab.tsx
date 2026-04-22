@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { loadCrew, loadStats, loadKudos } from "@/lib/storage";
 import { CrewMember, Kudos, PlayerStats } from "@/lib/types";
 import LoadingSpinner from "./LoadingSpinner";
+import { supabase } from "@/lib/supabase";
 
 function calcWinRate(s: PlayerStats): number {
   const games = s.wins + s.losses + s.draws;
@@ -24,12 +25,21 @@ export default function StatsTab() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([loadCrew(), loadStats(), loadKudos()]).then(([c, s, k]) => {
-      setCrew(c);
-      setStats(s);
-      setKudos(k);
-      setIsLoading(false);
-    });
+    const reload = () =>
+      Promise.all([loadCrew(), loadStats(), loadKudos()]).then(([c, s, k]) => {
+        setCrew(c); setStats(s); setKudos(k);
+      });
+
+    reload().then(() => setIsLoading(false));
+
+    const channel = supabase
+      .channel("stats-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "player_stats" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "kudos" }, reload)
+      .on("postgres_changes", { event: "*", schema: "public", table: "crew" }, reload)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   // Total games: each win = 1 game; draws counted twice in storage so divide by 2
