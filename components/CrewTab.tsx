@@ -137,22 +137,22 @@ export default function CrewTab() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const stored = loadCrew();
-    if (stored.length > 0) {
-      setCrew(stored);
-    } else {
-      setCrew(DEFAULT_CREW);
-      saveCrew(DEFAULT_CREW);
-    }
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
+    loadCrew().then(stored => {
+      if (stored.length > 0) {
+        setCrew(stored);
+      } else {
+        setCrew(DEFAULT_CREW);
+        saveCrew(DEFAULT_CREW).catch(console.error);
+      }
+      setIsLoading(false);
+    });
   }, []);
 
   const handleAdd = (member: Omit<CrewMember, "id">) => {
     const newMember: CrewMember = { ...member, id: crypto.randomUUID() };
     const updated = [...crew, newMember];
     setCrew(updated);
-    saveCrew(updated);
+    saveCrew(updated).catch(console.error);
     setShowModal(false);
     notify.success(`${member.name} added to the crew!`);
     logActivity(`${member.name} joined the crew`);
@@ -162,7 +162,7 @@ export default function CrewTab() {
     const member = crew.find(m => m.id === id);
     const updated = crew.filter(m => m.id !== id);
     setCrew(updated);
-    saveCrew(updated);
+    saveCrew(updated).catch(console.error);
     notify.success(`${member?.name} removed from crew.`);
   };
 
@@ -174,7 +174,7 @@ export default function CrewTab() {
       return { ...m, status: STATUS_CYCLE[nextIndex] };
     });
     setCrew(updated);
-    saveCrew(updated);
+    saveCrew(updated).catch(console.error);
   };
 
   const availableCount = crew.filter(m => (m.status ?? "available") === "available").length;

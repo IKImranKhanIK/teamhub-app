@@ -76,10 +76,11 @@ export default function GameTab() {
   const [rpsCountdown, setRpsCountdown] = useState(3);
 
   useEffect(() => {
-    setCrew(loadCrew());
-    setStats(loadStats());
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
+    Promise.all([loadCrew(), loadStats()]).then(([c, s]) => {
+      setCrew(c);
+      setStats(s);
+      setIsLoading(false);
+    });
   }, []);
 
   // ─── Shared stat recorder ─────────────────────────────────
@@ -95,7 +96,7 @@ export default function GameTab() {
         next[winner] = { ...(next[winner] ?? blank()), draws: (next[winner]?.draws ?? 0) + 1 };
         next[loser]  = { ...(next[loser]  ?? blank()), draws: (next[loser]?.draws ?? 0) + 1 };
       }
-      saveStats(next);
+      saveStats(next).catch(console.error);
       return next;
     });
   }, []);

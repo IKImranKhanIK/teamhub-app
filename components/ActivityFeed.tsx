@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { loadActivity, ActivityEvent } from "@/lib/activity";
 
 function relativeTime(ts: number): string {
@@ -17,10 +18,17 @@ export default function ActivityFeed() {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
 
   useEffect(() => {
-    const refresh = () => setEvents(loadActivity());
-    refresh();
-    window.addEventListener("teamhub-activity", refresh);
-    return () => window.removeEventListener("teamhub-activity", refresh);
+    loadActivity().then(setEvents);
+
+    // Real-time: re-fetch when a new activity row is inserted by any user
+    const channel = supabase
+      .channel("activity-feed")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "activity" }, () => {
+        loadActivity().then(setEvents);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   return (

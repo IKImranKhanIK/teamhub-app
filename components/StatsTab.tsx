@@ -24,11 +24,12 @@ export default function StatsTab() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setCrew(loadCrew());
-    setStats(loadStats());
-    setKudos(loadKudos());
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
+    Promise.all([loadCrew(), loadStats(), loadKudos()]).then(([c, s, k]) => {
+      setCrew(c);
+      setStats(s);
+      setKudos(k);
+      setIsLoading(false);
+    });
   }, []);
 
   // Total games: each win = 1 game; draws counted twice in storage so divide by 2

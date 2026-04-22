@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { supabase } from "@/lib/supabase";
 import { loadCrew } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
 import notify from "./Toast";
 import LoadingSpinner from "./LoadingSpinner";
 
-const STORAGE_KEY = "teamhub_chat";
 const MAX_MESSAGES = 100;
 const MAX_CHARS = 280;
 
@@ -45,19 +45,20 @@ const SAMPLE_MESSAGES: Message[] = [
   },
 ];
 
-function loadMessages(): Message[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw) as Message[];
-  } catch {
-    localStorage.removeItem(STORAGE_KEY);
-    return [];
-  }
-}
-
-function saveMessages(messages: Message[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+async function loadMessages(): Promise<Message[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("*")
+    .order("created_at", { ascending: true })
+    .limit(MAX_MESSAGES);
+  if (error) { console.warn("[chat] loadMessages:", error.message); return []; }
+  return (data ?? []).map(r => ({
+    id: r.id,
+    senderName: r.sender_name,
+    text: r.text,
+    timestamp: new Date(r.created_at).getTime(),
+    reactions: r.reactions as Record<ReactionEmoji, number>,
+  }));
 }
 
 function relativeTime(ts: number): string {
@@ -79,34 +80,47 @@ export default function ChatTab() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setCrew(loadCrew());
-    const stored = loadMessages();
-    if (stored.length > 0) {
-      setMessages(stored);
-    } else {
-      setMessages(SAMPLE_MESSAGES);
-      saveMessages(SAMPLE_MESSAGES);
-    }
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
+    Promise.all([loadCrew(), loadMessages()]).then(([crewData, msgs]) => {
+      setCrew(crewData);
+      if (msgs.length > 0) {
+        setMessages(msgs);
+      } else {
+        // Seed sample messages on first load
+        setMessages(SAMPLE_MESSAGES);
+        const rows = SAMPLE_MESSAGES.map(m => ({
+          id: m.id, sender_name: m.senderName, text: m.text,
+          reactions: m.reactions,
+          created_at: new Date(m.timestamp).toISOString(),
+        }));
+        supabase.from("messages").upsert(rows, { onConflict: "id" }).then(({ error }) => { if (error) console.warn("[chat] seed:", error.message); });
+      }
+      setIsLoading(false);
+    });
+
+    // Real-time: reload all messages when any row changes
+    const channel = supabase
+      .channel("chat-messages")
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
+        loadMessages().then(setMessages);
+      })
+      .subscribe();
+
+    const tick = setInterval(() => setTick(t => t + 1), 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(tick);
+    };
   }, []);
 
-  // Refresh relative timestamps every 30 seconds
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 30000);
-    return () => clearInterval(id);
-  }, []);
-
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = useCallback(() => {
+  const sendMessage = useCallback(async () => {
     if (!sender) { notify.error("Select who you are first."); return; }
     const trimmed = text.trim();
-    if (!trimmed) return;
-    if (trimmed.length > MAX_CHARS) return;
+    if (!trimmed || trimmed.length > MAX_CHARS) return;
 
     const newMsg: Message = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -116,33 +130,32 @@ export default function ChatTab() {
       reactions: { "👍": 0, "❤️": 0, "😂": 0, "🔥": 0 },
     };
 
-    setMessages(prev => {
-      const updated = [...prev, newMsg].slice(-MAX_MESSAGES);
-      saveMessages(updated);
-      return updated;
-    });
+    // Optimistic update
+    setMessages(prev => [...prev, newMsg].slice(-MAX_MESSAGES));
     setText("");
-    logActivity(`${sender} posted a message`);
     inputRef.current?.focus();
+
+    const { error } = await supabase.from("messages").insert({
+      id: newMsg.id, sender_name: newMsg.senderName, text: newMsg.text,
+      reactions: newMsg.reactions,
+    });
+    if (error) console.warn("[chat] sendMessage:", error.message);
+    logActivity(`${sender} posted a message`);
   }, [sender, text]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
   const addReaction = (msgId: string, emoji: ReactionEmoji) => {
-    setMessages(prev => {
-      const updated = prev.map(m =>
-        m.id === msgId
-          ? { ...m, reactions: { ...m.reactions, [emoji]: (m.reactions[emoji] ?? 0) + 1 } }
-          : m
-      );
-      saveMessages(updated);
-      return updated;
-    });
+    setMessages(prev => prev.map(m => {
+      if (m.id !== msgId) return m;
+      const newReactions = { ...m.reactions, [emoji]: (m.reactions[emoji] ?? 0) + 1 };
+      // Write updated reactions to DB fire-and-forget
+      supabase.from("messages").update({ reactions: newReactions }).eq("id", msgId)
+        .then(({ error }) => { if (error) console.warn("[chat] addReaction:", error.message); });
+      return { ...m, reactions: newReactions };
+    }));
   };
 
   const overLimit = text.length > MAX_CHARS;
@@ -158,7 +171,6 @@ export default function ChatTab() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-160px)] min-h-[500px]">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
           <h2 className="text-2xl font-bold text-white">Team Chat</h2>
@@ -167,7 +179,6 @@ export default function ChatTab() {
         <span className="text-xs text-slate-500">{messages.length} message{messages.length !== 1 ? "s" : ""}</span>
       </div>
 
-      {/* Message list */}
       <div className="flex-1 overflow-y-auto bg-[#1a1f2e] border border-[#2d3348] rounded-2xl p-4 space-y-4 mb-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-16 text-slate-500">
@@ -178,16 +189,13 @@ export default function ChatTab() {
         ) : (
           messages.map(msg => (
             <div key={msg.id} className="group">
-              {/* Sender + time */}
               <div className="flex items-baseline gap-2 mb-1">
                 <span className="text-sm font-semibold text-indigo-400">{msg.senderName}</span>
                 <span className="text-xs text-slate-600">{relativeTime(msg.timestamp)}</span>
               </div>
-              {/* Text bubble */}
               <div className="bg-[#0f1117] rounded-xl px-4 py-2.5 text-slate-200 text-sm leading-relaxed inline-block max-w-full break-words">
                 {msg.text}
               </div>
-              {/* Reactions */}
               <div className="flex gap-1.5 mt-1.5 flex-wrap">
                 {REACTIONS.map(emoji => {
                   const count = msg.reactions[emoji] ?? 0;
@@ -216,7 +224,6 @@ export default function ChatTab() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Composer */}
       <div className="flex-shrink-0 bg-[#1a1f2e] border border-[#2d3348] rounded-2xl p-4">
         <div className="flex gap-3 mb-3">
           <select

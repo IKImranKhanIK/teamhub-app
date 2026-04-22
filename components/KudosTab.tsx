@@ -170,16 +170,16 @@ export default function KudosTab() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setCrew(loadCrew());
-    const stored = loadKudos();
-    if (stored.length > 0) {
-      setKudos(stored);
-    } else {
-      setKudos(DEFAULT_KUDOS);
-      saveKudos(DEFAULT_KUDOS);
-    }
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
+    Promise.all([loadCrew(), loadKudos()]).then(([crewData, stored]) => {
+      setCrew(crewData);
+      if (stored.length > 0) {
+        setKudos(stored);
+      } else {
+        setKudos(DEFAULT_KUDOS);
+        saveKudos(DEFAULT_KUDOS).catch(console.error);
+      }
+      setIsLoading(false);
+    });
   }, []);
 
   const handleSubmit = (data: Omit<Kudos, "id" | "timestamp">) => {
@@ -190,7 +190,7 @@ export default function KudosTab() {
     };
     const updated = [newKudos, ...kudos];
     setKudos(updated);
-    saveKudos(updated);
+    saveKudos(updated).catch(console.error);
     setShowModal(false);
     notify.success(`Kudos sent to ${data.toName}! ${data.emoji}`);
     logActivity(`${data.fromName} gave kudos to ${data.toName}`);
@@ -199,7 +199,7 @@ export default function KudosTab() {
   const handleDelete = (id: string) => {
     const updated = kudos.filter(k => k.id !== id);
     setKudos(updated);
-    saveKudos(updated);
+    saveKudos(updated).catch(console.error);
     notify.success("Kudos removed.");
   };
 

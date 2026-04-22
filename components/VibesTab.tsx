@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import notify from "./Toast";
 import { CrewMember } from "@/lib/types";
 import { loadCrew } from "@/lib/storage";
+import { supabase } from "@/lib/supabase";
 import { logActivity } from "@/lib/activity";
 import LoadingSpinner from "./LoadingSpinner";
 
@@ -56,35 +57,52 @@ const ICEBREAKERS = [
 
 // ─── Storage helpers ──────────────────────────────────────
 
-const KEYS = {
-  poll:        "teamhub_poll",
-  icebreaker:  "teamhub_icebreaker",
-  mood:        "teamhub_mood",
-};
-
-function loadPoll(): Poll | null {
-  if (typeof window === "undefined") return null;
-  try { return JSON.parse(localStorage.getItem(KEYS.poll) || "null"); } catch { return null; }
-}
-function savePoll(poll: Poll | null) {
-  if (poll) localStorage.setItem(KEYS.poll, JSON.stringify(poll));
-  else localStorage.removeItem(KEYS.poll);
+async function loadPoll(): Promise<Poll | null> {
+  const { data } = await supabase
+    .from("poll").select("*").order("created_at", { ascending: false }).limit(1);
+  if (!data || data.length === 0) return null;
+  const r = data[0];
+  return { id: r.id, question: r.question, options: r.options as string[], votes: r.votes as Record<string, number> };
 }
 
-function loadIcebreaker(): IcebreakerState | null {
-  if (typeof window === "undefined") return null;
-  try { return JSON.parse(localStorage.getItem(KEYS.icebreaker) || "null"); } catch { return null; }
-}
-function saveIcebreaker(s: IcebreakerState) {
-  localStorage.setItem(KEYS.icebreaker, JSON.stringify(s));
+async function savePoll(poll: Poll | null): Promise<void> {
+  if (!poll) {
+    await supabase.from("poll").delete().neq("id", "");
+    return;
+  }
+  const { error } = await supabase.from("poll").upsert(
+    { id: poll.id, question: poll.question, options: poll.options, votes: poll.votes },
+    { onConflict: "id" }
+  );
+  if (error) console.warn("[vibes] savePoll:", error.message);
 }
 
-function loadMood(): MoodState | null {
-  if (typeof window === "undefined") return null;
-  try { return JSON.parse(localStorage.getItem(KEYS.mood) || "null"); } catch { return null; }
+async function loadIcebreaker(date: string): Promise<IcebreakerState | null> {
+  const { data } = await supabase.from("icebreaker").select("*").eq("date", date).maybeSingle();
+  if (!data) return null;
+  return { date: data.date, questionIndex: data.question_index, answers: data.answers as { name: string; text: string }[] };
 }
-function saveMood(s: MoodState) {
-  localStorage.setItem(KEYS.mood, JSON.stringify(s));
+
+async function saveIcebreaker(s: IcebreakerState): Promise<void> {
+  const { error } = await supabase.from("icebreaker").upsert(
+    { date: s.date, question_index: s.questionIndex, answers: s.answers },
+    { onConflict: "date" }
+  );
+  if (error) console.warn("[vibes] saveIcebreaker:", error.message);
+}
+
+async function loadMood(date: string): Promise<MoodState | null> {
+  const { data } = await supabase.from("mood").select("*").eq("date", date).maybeSingle();
+  if (!data) return null;
+  return { date: data.date, checkins: data.checkins as { name: string; mood: string }[] };
+}
+
+async function saveMood(s: MoodState): Promise<void> {
+  const { error } = await supabase.from("mood").upsert(
+    { date: s.date, checkins: s.checkins },
+    { onConflict: "date" }
+  );
+  if (error) console.warn("[vibes] saveMood:", error.message);
 }
 
 function todayStr(): string {
@@ -104,14 +122,14 @@ function PollSection({ crew }: { crew: CrewMember[] }) {
   const [showModal, setShowModal] = useState(false);
   const [voter, setVoter] = useState("");
 
-  useEffect(() => { setPoll(loadPoll()); }, []);
+  useEffect(() => { loadPoll().then(setPoll); }, []);
 
   const vote = (idx: number) => {
     if (!voter || !poll) return;
     if (poll.votes[voter] !== undefined) { notify.error("You've already voted."); return; }
     const updated = { ...poll, votes: { ...poll.votes, [voter]: idx } };
     setPoll(updated);
-    savePoll(updated);
+    savePoll(updated).catch(console.error);
     notify.success("Vote recorded!");
   };
 
@@ -188,7 +206,7 @@ function PollSection({ crew }: { crew: CrewMember[] }) {
         <CreatePollModal
           crew={crew}
           onClose={() => setShowModal(false)}
-          onCreate={(p, creator) => { setPoll(p); savePoll(p); setShowModal(false); setVoter(""); notify.success("Poll created!"); logActivity(`${creator} created a new poll`); }}
+          onCreate={(p, creator) => { setPoll(p); savePoll(p).catch(console.error); setShowModal(false); setVoter(""); notify.success("Poll created!"); logActivity(`${creator} created a new poll`); }}
         />
       )}
     </div>
@@ -278,21 +296,22 @@ function IcebreakerSection({ crew }: { crew: CrewMember[] }) {
 
   useEffect(() => {
     const t = todayStr();
-    const stored = loadIcebreaker();
-    if (stored && stored.date === t) {
-      setState(stored);
-    } else {
-      const fresh: IcebreakerState = { date: t, questionIndex: dateSeed(t) % ICEBREAKERS.length, answers: [] };
-      setState(fresh);
-      saveIcebreaker(fresh);
-    }
+    loadIcebreaker(t).then(stored => {
+      if (stored) {
+        setState(stored);
+      } else {
+        const fresh: IcebreakerState = { date: t, questionIndex: dateSeed(t) % ICEBREAKERS.length, answers: [] };
+        setState(fresh);
+        saveIcebreaker(fresh).catch(console.error);
+      }
+    });
   }, []);
 
   const nextQuestion = () => {
     if (!state) return;
     const updated = { ...state, questionIndex: (state.questionIndex + 1) % ICEBREAKERS.length };
     setState(updated);
-    saveIcebreaker(updated);
+    saveIcebreaker(updated).catch(console.error);
   };
 
   const submitAnswer = () => {
@@ -300,7 +319,7 @@ function IcebreakerSection({ crew }: { crew: CrewMember[] }) {
     if (state.answers.some(a => a.name === name)) { notify.error("You've already answered today."); return; }
     const updated = { ...state, answers: [...state.answers, { name, text: text.trim() }] };
     setState(updated);
-    saveIcebreaker(updated);
+    saveIcebreaker(updated).catch(console.error);
     setText("");
     setShowAnswer(false);
     notify.success("Answer submitted!");
@@ -370,14 +389,15 @@ function MoodSection({ crew }: { crew: CrewMember[] }) {
 
   useEffect(() => {
     const t = todayStr();
-    const stored = loadMood();
-    if (stored && stored.date === t) {
-      setState(stored);
-    } else {
-      const fresh: MoodState = { date: t, checkins: [] };
-      setState(fresh);
-      saveMood(fresh);
-    }
+    loadMood(t).then(stored => {
+      if (stored) {
+        setState(stored);
+      } else {
+        const fresh: MoodState = { date: t, checkins: [] };
+        setState(fresh);
+        saveMood(fresh).catch(console.error);
+      }
+    });
   }, []);
 
   const checkIn = (mood: string) => {
@@ -388,7 +408,7 @@ function MoodSection({ crew }: { crew: CrewMember[] }) {
       : [...state.checkins, { name, mood }];
     const updated = { ...state, checkins };
     setState(updated);
-    saveMood(updated);
+    saveMood(updated).catch(console.error);
     if (!exists) { notify.success("Mood checked in!"); logActivity(`${name} checked in as ${mood}`); }
   };
 
@@ -449,9 +469,7 @@ export default function VibesTab() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setCrew(loadCrew());
-    const timer = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(timer);
+    loadCrew().then(c => { setCrew(c); setIsLoading(false); });
   }, []);
 
   if (isLoading) {
