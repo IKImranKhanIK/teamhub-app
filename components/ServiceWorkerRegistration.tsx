@@ -1,0 +1,18 @@
+"use client";
+
+import { useEffect } from "react";
+
+export default function ServiceWorkerRegistration() {
+  useEffect(() => {
+    // Only register in production — SW intercepts fetches which breaks HMR in dev
+    if (process.env.NODE_ENV !== "production") return;
+    if (!("serviceWorker" in navigator)) return;
+
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => console.log("[SW] Registered:", reg.scope))
+      .catch((err) => console.error("[SW] Registration failed:", err));
+  }, []);
+
+  return null;
+}
