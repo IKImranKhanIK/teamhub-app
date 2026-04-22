@@ -7,6 +7,7 @@ import { CrewMember, Kudos } from "@/lib/types";
 import { loadCrew, loadKudos, saveKudos } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
 import { supabase } from "@/lib/supabase";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const KUDOS_EMOJIS = ["🌟", "🚀", "💡", "🎯", "🔥", "💎", "👏", "🙌", "⭐", "💪", "🏆", "✨"];
 
@@ -37,6 +38,7 @@ interface GiveKudosModalProps {
 
 function GiveKudosModal({ crew, onClose, onSubmit }: GiveKudosModalProps) {
   const [form, setForm] = useState({ from: "", to: "", message: "", emoji: "🌟" });
+  const dialogRef = useFocusTrap<HTMLDivElement>(onClose);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,14 +59,21 @@ function GiveKudosModal({ crew, onClose, onSubmit }: GiveKudosModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl w-full max-w-md shadow-2xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="give-kudos-title"
+        className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl w-full max-w-md shadow-2xl"
+      >
         <div className="flex items-center justify-between p-6 border-b border-[#2d3348]">
-          <h2 className="text-lg font-semibold text-white">Give Kudos</h2>
+          <h2 id="give-kudos-title" className="text-lg font-semibold text-white">Give Kudos</h2>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="text-slate-400 hover:text-white transition-colors text-xl leading-none"
           >
-            ×
+            <span aria-hidden="true">×</span>
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -274,10 +283,10 @@ export default function KudosTab() {
                   </div>
                   <button
                     onClick={() => handleDelete(k.id)}
+                    aria-label={`Remove kudos from ${k.fromName} to ${k.toName}`}
                     className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xl leading-none"
-                    title="Remove kudos"
                   >
-                    ×
+                    <span aria-hidden="true">×</span>
                   </button>
                 </div>
                 <p className="text-slate-300 text-sm leading-relaxed bg-[#0f1117] rounded-xl p-3">

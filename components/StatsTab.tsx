@@ -126,36 +126,41 @@ export default function StatsTab() {
       <div>
         <h3 className="text-lg font-semibold text-white mb-3">Player Leaderboard</h3>
         <div className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl overflow-hidden">
-          <div className="grid grid-cols-6 text-xs text-slate-500 uppercase tracking-wider px-4 py-3 border-b border-[#2d3348]">
-            <span className="col-span-2">Player</span>
-            <span className="text-center">W</span>
-            <span className="text-center">L</span>
-            <span className="text-center">D</span>
-            <span className="text-center">Win%</span>
-          </div>
-          {leaderboard.length === 0 ? (
-            <div className="text-center py-10 text-slate-500 text-sm">
-              No games played yet.
-            </div>
-          ) : (
-            leaderboard.map((p, i) => (
-              <div
-                key={p.name}
-                className="grid grid-cols-6 items-center px-4 py-3 border-b border-[#2d3348] last:border-0"
-              >
-                <div className="col-span-2 flex items-center gap-2 min-w-0">
-                  <span className="text-xs text-slate-600 w-4 flex-shrink-0">{i + 1}</span>
-                  <span className="text-sm text-white font-medium truncate">{p.name}</span>
-                </div>
-                <span className="text-center text-emerald-400 text-sm font-semibold">{p.wins}</span>
-                <span className="text-center text-rose-400 text-sm">{p.losses}</span>
-                <span className="text-center text-slate-500 text-sm">{p.draws}</span>
-                <span className="text-center text-sm font-semibold" style={{ color: "#f5c518" }}>
-                  {p.rate}%
-                </span>
-              </div>
-            ))
-          )}
+          <table className="w-full">
+            <caption className="sr-only">Player win/loss/draw leaderboard</caption>
+            <thead>
+              <tr className="border-b border-[#2d3348]">
+                <th scope="col" className="text-left text-xs text-slate-500 uppercase tracking-wider px-4 py-3 w-1/2">Player</th>
+                <th scope="col" className="text-center text-xs text-slate-500 uppercase tracking-wider px-2 py-3">W</th>
+                <th scope="col" className="text-center text-xs text-slate-500 uppercase tracking-wider px-2 py-3">L</th>
+                <th scope="col" className="text-center text-xs text-slate-500 uppercase tracking-wider px-2 py-3">D</th>
+                <th scope="col" className="text-center text-xs text-slate-500 uppercase tracking-wider px-2 py-3">Win%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leaderboard.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="text-center py-10 text-slate-500 text-sm">No games played yet.</td>
+                </tr>
+              ) : (
+                leaderboard.map((p, i) => (
+                  <tr key={p.name} className="border-b border-[#2d3348] last:border-0">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs text-slate-600 w-4 flex-shrink-0" aria-hidden="true">{i + 1}</span>
+                        <span className="text-sm text-white font-medium truncate">{p.name}</span>
+                        <span className="sr-only">, rank {i + 1}</span>
+                      </div>
+                    </td>
+                    <td className="text-center text-emerald-400 text-sm font-semibold px-2 py-3">{p.wins}</td>
+                    <td className="text-center text-rose-400 text-sm px-2 py-3">{p.losses}</td>
+                    <td className="text-center text-slate-500 text-sm px-2 py-3">{p.draws}</td>
+                    <td className="text-center text-sm font-semibold px-2 py-3" style={{ color: "#f5c518" }}>{p.rate}%</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import notify from "./Toast";
 import LoadingSpinner from "./LoadingSpinner";
 import { CrewMember, PlayerStats } from "@/lib/types";
@@ -75,6 +75,9 @@ export default function GameTab() {
   const [rpsMatchWinner, setRpsMatchWinner] = useState("");
   const [rpsCountdown, setRpsCountdown] = useState(3);
 
+  // Board cell refs for arrow-key navigation
+  const cellRefs = useRef<(HTMLButtonElement | null)[]>(Array(9).fill(null));
+
   useEffect(() => {
     Promise.all([loadCrew(), loadStats()]).then(([c, s]) => {
       setCrew(c);
@@ -146,7 +149,18 @@ export default function GameTab() {
     }
   };
 
-  const resetTTT  = () => { clearBoard(); setTttStatus(playerX && playerO && playerX !== playerO ? "playing" : "idle"); };
+  const handleBoardKeyDown = useCallback((e: React.KeyboardEvent<HTMLButtonElement>, idx: number) => {
+    const row = Math.floor(idx / 3);
+    const col = idx % 3;
+    let target = -1;
+    if (e.key === "ArrowRight" && col < 2) target = idx + 1;
+    else if (e.key === "ArrowLeft"  && col > 0) target = idx - 1;
+    else if (e.key === "ArrowDown"  && row < 2) target = idx + 3;
+    else if (e.key === "ArrowUp"    && row > 0) target = idx - 3;
+    if (target >= 0) { e.preventDefault(); cellRefs.current[target]?.focus(); }
+  }, []);
+
+  const resetTTT   = () => { clearBoard(); setTttStatus(playerX && playerO && playerX !== playerO ? "playing" : "idle"); };
   const newTTTGame = () => { clearBoard(); setTttStatus("idle"); };
 
   // ─── RPS logic ────────────────────────────────────────────
@@ -171,9 +185,9 @@ export default function GameTab() {
   };
 
   const pickO = (choice: RPSChoice) => {
-    const round   = rpsResult(rpsChoiceX!, choice);
-    const newScX  = rpsScoreX + (round === "X" ? 1 : 0);
-    const newScO  = rpsScoreO + (round === "O" ? 1 : 0);
+    const round  = rpsResult(rpsChoiceX!, choice);
+    const newScX = rpsScoreX + (round === "X" ? 1 : 0);
+    const newScO = rpsScoreO + (round === "O" ? 1 : 0);
 
     setRpsChoiceO(choice);
     setRpsRoundWinner(round);
@@ -249,9 +263,13 @@ export default function GameTab() {
       <div className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl p-5 w-full lg:w-auto flex-shrink-0">
 
         {/* Game mode selector */}
-        <div className="flex gap-1 bg-[#0f1117] rounded-xl p-1 mb-5">
+        <div role="radiogroup" aria-label="Game mode" className="flex gap-1 bg-[#0f1117] rounded-xl p-1 mb-5">
           {(["ttt", "rps"] as GameMode[]).map(m => (
-            <button key={m} onClick={() => switchMode(m)}
+            <button
+              key={m}
+              onClick={() => switchMode(m)}
+              role="radio"
+              aria-checked={gameMode === m}
               className={["flex-1 py-1.5 text-xs font-medium rounded-lg transition-all",
                 gameMode === m ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-slate-200"].join(" ")}
             >
@@ -263,8 +281,12 @@ export default function GameTab() {
         {/* Player selection — shared */}
         <div className="flex items-end justify-center gap-2 mb-5">
           <div>
-            <p className="text-[11px] text-slate-500 mb-1">Player X</p>
-            <select value={playerX} onChange={e => setPlayerX(e.target.value)} disabled={playersDisabled}
+            <label htmlFor="player-x-select" className="block text-[11px] text-slate-500 mb-1">Player X</label>
+            <select
+              id="player-x-select"
+              value={playerX}
+              onChange={e => setPlayerX(e.target.value)}
+              disabled={playersDisabled}
               className="w-[130px] bg-[#0f1117] border border-[#2d3348] rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <option value="">— Choose —</option>
@@ -272,11 +294,15 @@ export default function GameTab() {
             </select>
           </div>
           <div className="mb-1.5">
-            <span className="text-[11px] font-bold text-slate-600 bg-[#0f1117] border border-[#2d3348] px-2 py-1 rounded-md">VS</span>
+            <span aria-hidden="true" className="text-[11px] font-bold text-slate-600 bg-[#0f1117] border border-[#2d3348] px-2 py-1 rounded-md">VS</span>
           </div>
           <div>
-            <p className="text-[11px] text-slate-500 mb-1">Player O</p>
-            <select value={playerO} onChange={e => setPlayerO(e.target.value)} disabled={playersDisabled}
+            <label htmlFor="player-o-select" className="block text-[11px] text-slate-500 mb-1">Player O</label>
+            <select
+              id="player-o-select"
+              value={playerO}
+              onChange={e => setPlayerO(e.target.value)}
+              disabled={playersDisabled}
               className="w-[130px] bg-[#0f1117] border border-[#2d3348] rounded-lg px-2 py-1.5 text-slate-200 text-sm focus:outline-none focus:border-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <option value="">— Choose —</option>
@@ -288,35 +314,49 @@ export default function GameTab() {
         {/* ── Tic Tac Toe ── */}
         {gameMode === "ttt" && (
           <>
-            <div className="h-6 flex items-center justify-center mb-3">
+            {/* Status bar — screen readers hear turn/win/draw changes */}
+            <div aria-live="polite" className="h-6 flex items-center justify-center mb-3">
               {tttStatus === "playing" && (
                 <p className="text-[0.8rem] font-mono text-slate-400">
                   <span className="text-indigo-400 font-semibold">{firstName(currentPlayerName)}</span>
                   {`'s turn (${currentTurn})`}
                 </p>
               )}
-              {tttStatus === "won"  && <p className="text-[0.8rem] font-mono text-emerald-400 font-semibold">🏆 {firstName(winnerName)} wins!</p>}
-              {tttStatus === "draw" && <p className="text-[0.8rem] font-mono text-amber-400 font-semibold">🤝 Draw!</p>}
+              {tttStatus === "won"  && <p role="alert" className="text-[0.8rem] font-mono text-emerald-400 font-semibold">🏆 {firstName(winnerName)} wins!</p>}
+              {tttStatus === "draw" && <p role="alert" className="text-[0.8rem] font-mono text-amber-400 font-semibold">🤝 Draw!</p>}
             </div>
 
+            {/* Board — role="grid" with row/gridcell roles + arrow-key nav */}
             <div className="mx-auto mb-4 w-[208px] sm:w-[256px]">
-              <div className="grid grid-cols-3 gap-2">
-                {board.map((cell, idx) => {
-                  const isWin = winLine.includes(idx);
-                  return (
-                    <button key={idx} onClick={() => handleCell(idx)}
-                      disabled={tttStatus !== "playing" || !!cell}
-                      className={[
-                        "w-16 h-16 sm:w-20 sm:h-20 rounded-lg border flex items-center justify-center text-2xl font-bold transition-colors duration-100",
-                        isWin ? "border-emerald-500 bg-emerald-900/25" : "border-[#2d3348] bg-[#0f1117]",
-                        !cell && tttStatus === "playing" ? "hover:border-indigo-500/50 hover:bg-[#1c2130] cursor-pointer" : "cursor-default",
-                        cell === "X" ? "text-indigo-400" : "text-rose-400",
-                      ].join(" ")}
-                    >
-                      {cell}
-                    </button>
-                  );
-                })}
+              <div role="grid" aria-label="Tic Tac Toe board" className="grid grid-cols-3 gap-2">
+                {[0, 1, 2].map(row => (
+                  <div key={row} role="row" className="contents">
+                    {[0, 1, 2].map(col => {
+                      const idx  = row * 3 + col;
+                      const cell = board[idx];
+                      const isWin = winLine.includes(idx);
+                      return (
+                        <button
+                          key={idx}
+                          ref={el => { cellRefs.current[idx] = el; }}
+                          role="gridcell"
+                          aria-label={`Row ${row + 1}, Column ${col + 1}, ${cell ?? "empty"}`}
+                          onClick={() => handleCell(idx)}
+                          onKeyDown={e => handleBoardKeyDown(e, idx)}
+                          disabled={tttStatus !== "playing" || !!cell}
+                          className={[
+                            "w-16 h-16 sm:w-20 sm:h-20 rounded-lg border flex items-center justify-center text-2xl font-bold transition-colors duration-100",
+                            isWin ? "border-emerald-500 bg-emerald-900/25" : "border-[#2d3348] bg-[#0f1117]",
+                            !cell && tttStatus === "playing" ? "hover:border-indigo-500/50 hover:bg-[#1c2130] cursor-pointer" : "cursor-default",
+                            cell === "X" ? "text-indigo-400" : "text-rose-400",
+                          ].join(" ")}
+                        >
+                          <span aria-hidden="true">{cell}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -366,12 +406,15 @@ export default function GameTab() {
                   <span className="text-white font-semibold">{firstName(playerX)}</span>, make your pick
                 </p>
                 <p className="text-xs text-slate-600 mb-4">{firstName(playerO)} cannot see your choice</p>
-                <div className="flex gap-3 justify-center">
+                <div role="group" aria-label={`${firstName(playerX)}'s pick`} className="flex gap-3 justify-center">
                   {RPS_OPTIONS.map(c => (
-                    <button key={c} onClick={() => pickX(c)}
+                    <button
+                      key={c}
+                      onClick={() => pickX(c)}
+                      aria-label={`${firstName(playerX)} picks ${c}`}
                       className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[#2d3348] bg-[#0f1117] hover:border-indigo-500/50 hover:bg-[#1c2130] transition-all"
                     >
-                      <span className="text-3xl">{RPS_EMOJI[c]}</span>
+                      <span className="text-3xl" aria-hidden="true">{RPS_EMOJI[c]}</span>
                       <span className="text-xs text-slate-400 capitalize">{c}</span>
                     </button>
                   ))}
@@ -382,12 +425,13 @@ export default function GameTab() {
             {/* Passing screen */}
             {rpsPhase === "passing" && (
               <div className="text-center py-2">
-                <p className="text-3xl mb-3">🔒</p>
+                <p className="text-3xl mb-3" aria-hidden="true">🔒</p>
                 <p className="text-sm text-emerald-400 font-medium mb-1">{firstName(playerX)} has locked in.</p>
                 <p className="text-sm text-slate-400 mb-5">
                   Pass the device to <span className="text-white font-semibold">{firstName(playerO)}</span>.
                 </p>
-                <button onClick={() => setRpsPhase("o-picking")}
+                <button
+                  onClick={() => setRpsPhase("o-picking")}
                   className="px-5 py-2 text-sm border border-indigo-500/70 text-indigo-400 rounded-lg hover:bg-indigo-500/10 transition-colors"
                 >
                   Continue →
@@ -402,12 +446,15 @@ export default function GameTab() {
                   <span className="text-white font-semibold">{firstName(playerO)}</span>, make your pick
                 </p>
                 <p className="text-xs text-slate-600 mb-4">{firstName(playerX)}&apos;s choice is hidden</p>
-                <div className="flex gap-3 justify-center">
+                <div role="group" aria-label={`${firstName(playerO)}'s pick`} className="flex gap-3 justify-center">
                   {RPS_OPTIONS.map(c => (
-                    <button key={c} onClick={() => pickO(c)}
+                    <button
+                      key={c}
+                      onClick={() => pickO(c)}
+                      aria-label={`${firstName(playerO)} picks ${c}`}
                       className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-[#2d3348] bg-[#0f1117] hover:border-indigo-500/50 hover:bg-[#1c2130] transition-all"
                     >
-                      <span className="text-3xl">{RPS_EMOJI[c]}</span>
+                      <span className="text-3xl" aria-hidden="true">{RPS_EMOJI[c]}</span>
                       <span className="text-xs text-slate-400 capitalize">{c}</span>
                     </button>
                   ))}
@@ -417,10 +464,11 @@ export default function GameTab() {
 
             {/* Countdown */}
             {rpsPhase === "countdown" && (
-              <div className="text-center py-4">
-                <p className="text-7xl font-bold text-white tabular-nums leading-none">
+              <div role="status" className="text-center py-4">
+                <p className="text-7xl font-bold text-white tabular-nums leading-none" aria-hidden="true">
                   {rpsCountdown > 0 ? rpsCountdown : "GO!"}
                 </p>
+                <span className="sr-only">{rpsCountdown > 0 ? rpsCountdown : "Go!"}</span>
                 <p className="text-xs text-slate-600 mt-4">Revealing picks…</p>
               </div>
             )}
@@ -431,20 +479,20 @@ export default function GameTab() {
                 {/* Picks */}
                 <div className="flex items-center justify-center gap-8 mb-4">
                   <div>
-                    <p className="text-4xl mb-1">{RPS_EMOJI[rpsChoiceX]}</p>
+                    <p className="text-4xl mb-1" aria-hidden="true">{RPS_EMOJI[rpsChoiceX]}</p>
                     <p className="text-xs text-white font-medium">{firstName(playerX)}</p>
                     <p className="text-xs text-slate-500 capitalize">{rpsChoiceX}</p>
                   </div>
-                  <span className="text-slate-600 text-sm font-bold">VS</span>
+                  <span className="text-slate-600 text-sm font-bold" aria-hidden="true">VS</span>
                   <div>
-                    <p className="text-4xl mb-1">{RPS_EMOJI[rpsChoiceO]}</p>
+                    <p className="text-4xl mb-1" aria-hidden="true">{RPS_EMOJI[rpsChoiceO]}</p>
                     <p className="text-xs text-white font-medium">{firstName(playerO)}</p>
                     <p className="text-xs text-slate-500 capitalize">{rpsChoiceO}</p>
                   </div>
                 </div>
 
                 {/* Round result */}
-                <p className="text-sm font-semibold mb-1">
+                <p role="alert" className="text-sm font-semibold mb-1">
                   {rpsRoundWinner === "X"    && <span className="text-emerald-400">🏆 {firstName(playerX)} wins the round!</span>}
                   {rpsRoundWinner === "O"    && <span className="text-emerald-400">🏆 {firstName(playerO)} wins the round!</span>}
                   {rpsRoundWinner === "draw" && <span className="text-amber-400">🤝 Draw — no point awarded</span>}
@@ -462,17 +510,19 @@ export default function GameTab() {
                 {/* Match over or next round */}
                 {rpsMatchWinner ? (
                   <div>
-                    <p className="text-sm text-emerald-400 font-bold mb-3">
+                    <p role="alert" className="text-sm text-emerald-400 font-bold mb-3">
                       🏆 {firstName(rpsMatchWinner)} wins the match!
                     </p>
-                    <button onClick={newRPSMatch}
+                    <button
+                      onClick={newRPSMatch}
                       className="px-4 py-1.5 text-sm border border-indigo-500/70 text-indigo-400 rounded-lg hover:bg-indigo-500/10 transition-colors"
                     >
                       New Match
                     </button>
                   </div>
                 ) : (
-                  <button onClick={nextRPSRound}
+                  <button
+                    onClick={nextRPSRound}
                     className="px-4 py-1.5 text-sm border border-indigo-500/70 text-indigo-400 rounded-lg hover:bg-indigo-500/10 transition-colors"
                   >
                     Next Round →
@@ -502,36 +552,50 @@ export default function GameTab() {
 
         {leaderboard.length === 0 ? (
           <div className="text-center py-8 text-slate-500">
-            <p className="text-2xl mb-2">🎮</p>
+            <p className="text-2xl mb-2" aria-hidden="true">🎮</p>
             <p className="text-xs font-medium text-slate-400">No games played yet</p>
             <p className="text-xs mt-1">Select players and start a match</p>
           </div>
         ) : (
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 px-2 pb-1 mb-1 border-b border-[#2d3348]">
-              <span className="w-5" />
-              <span className="w-7" />
-              <span className="flex-1 text-[10px] text-slate-600 uppercase tracking-wider">Name</span>
-              <span className="w-6 text-center text-[10px] text-emerald-700 uppercase tracking-wider">W</span>
-              <span className="w-6 text-center text-[10px] text-slate-600 uppercase tracking-wider">L</span>
-              <span className="w-6 text-center text-[10px] text-slate-600 uppercase tracking-wider">D</span>
-            </div>
-            {leaderboard.map((player, i) => (
-              <div key={player.name} className={`flex items-center gap-2 px-2 py-1.5 rounded-lg ${i === 0 ? "bg-indigo-600/10" : ""}`}>
-                <span className="w-5 text-center text-sm flex-shrink-0">
-                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-slate-600 text-xs">{i + 1}</span>}
-                </span>
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-                  style={{ backgroundColor: avatarColor(player.name) }}>
-                  {player.name[0].toUpperCase()}
-                </div>
-                <span className="flex-1 text-sm text-white font-medium truncate">{firstName(player.name)}</span>
-                <span className="w-6 text-center text-xs text-emerald-400 font-semibold">{player.wins}</span>
-                <span className="w-6 text-center text-xs text-slate-500">{player.losses}</span>
-                <span className="w-6 text-center text-xs text-slate-500">{player.draws}</span>
-              </div>
-            ))}
-          </div>
+          <table className="w-full">
+            <caption className="sr-only">Game leaderboard — wins, losses, and draws across all games</caption>
+            <thead>
+              <tr className="border-b border-[#2d3348]">
+                <th scope="col" className="sr-only">Rank</th>
+                <th scope="col" className="text-left text-[10px] text-slate-600 uppercase tracking-wider px-2 pb-1.5 font-medium">Name</th>
+                <th scope="col" className="text-center text-[10px] text-emerald-700 uppercase tracking-wider w-6 pb-1.5 font-medium">W</th>
+                <th scope="col" className="text-center text-[10px] text-slate-600 uppercase tracking-wider w-6 pb-1.5 font-medium">L</th>
+                <th scope="col" className="text-center text-[10px] text-slate-600 uppercase tracking-wider w-6 pb-1.5 font-medium">D</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leaderboard.map((player, i) => (
+                <tr key={player.name} className={i === 0 ? "bg-indigo-600/10" : ""}>
+                  <td className="pl-2 py-1.5 w-5">
+                    <span aria-hidden="true" className="text-sm leading-none">
+                      {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : <span className="text-slate-600 text-xs">{i + 1}</span>}
+                    </span>
+                    <span className="sr-only">Rank {i + 1}</span>
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                        style={{ backgroundColor: avatarColor(player.name) }}
+                        aria-hidden="true"
+                      >
+                        {player.name[0].toUpperCase()}
+                      </div>
+                      <span className="text-sm text-white font-medium truncate">{firstName(player.name)}</span>
+                    </div>
+                  </td>
+                  <td className="text-center text-xs text-emerald-400 font-semibold w-6 py-1.5">{player.wins}</td>
+                  <td className="text-center text-xs text-slate-500 w-6 py-1.5">{player.losses}</td>
+                  <td className="text-center text-xs text-slate-500 w-6 py-1.5">{player.draws}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

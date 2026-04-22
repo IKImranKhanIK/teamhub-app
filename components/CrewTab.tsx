@@ -7,6 +7,7 @@ import { CrewMember, AvailabilityStatus } from "@/lib/types";
 import { loadCrew, saveCrew } from "@/lib/storage";
 import { logActivity } from "@/lib/activity";
 import { supabase } from "@/lib/supabase";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 const EMOJI_OPTIONS = [
   "👩‍💻", "👨‍💻", "🧑‍💻", "👩‍🎨", "👨‍🎨", "🧑‍🎨",
@@ -52,6 +53,7 @@ interface ModalProps {
 
 function AddMemberModal({ onClose, onAdd }: ModalProps) {
   const [form, setForm] = useState({ name: "", role: "", funFact: "", emoji: "👩‍💻" });
+  const dialogRef = useFocusTrap<HTMLDivElement>(onClose);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,10 +66,16 @@ function AddMemberModal({ onClose, onAdd }: ModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl w-full max-w-md shadow-2xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-member-title"
+        className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl w-full max-w-md shadow-2xl"
+      >
         <div className="flex items-center justify-between p-6 border-b border-[#2d3348]">
-          <h2 className="text-lg font-semibold text-white">Add Teammate</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors text-xl leading-none">×</button>
+          <h2 id="add-member-title" className="text-lg font-semibold text-white">Add Teammate</h2>
+          <button onClick={onClose} aria-label="Close dialog" className="text-slate-400 hover:text-white transition-colors text-xl leading-none">×</button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
@@ -266,26 +274,26 @@ export default function CrewTab() {
                   </div>
                   <button
                     onClick={() => handleRemove(member.id)}
+                    aria-label={`Remove ${member.name} from crew`}
                     className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all text-xl leading-none"
-                    title="Remove member"
                   >
-                    ×
+                    <span aria-hidden="true">×</span>
                   </button>
                 </div>
 
                 {/* Status indicator — click to cycle */}
                 <button
                   onClick={() => cycleStatus(member.id)}
+                  aria-label={`${member.name}'s status: ${statusLabel}. Click to change.`}
                   className="flex items-center gap-2 w-fit hover:opacity-80 transition-opacity"
-                  title="Click to change status"
                 >
-                  <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${statusDot}`} />
-                  <span className="text-xs text-slate-400">{statusLabel}</span>
+                  <span aria-hidden="true" className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${statusDot}`} />
+                  <span className="text-xs text-slate-400" aria-hidden="true">{statusLabel}</span>
                 </button>
 
                 {/* Emoji mood */}
                 <div className="flex items-center gap-2">
-                  <span className="text-2xl">{member.emoji}</span>
+                  <span aria-hidden="true" className="text-2xl">{member.emoji}</span>
                   <span className="text-xs text-slate-500 uppercase tracking-wider font-medium">Mood</span>
                 </div>
 

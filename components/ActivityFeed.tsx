@@ -39,15 +39,15 @@ export default function ActivityFeed() {
       {events.length === 0 ? (
         <p className="text-xs text-slate-600 text-center py-6">No activity yet.</p>
       ) : (
-        <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+        <div role="feed" aria-label="Team activity" aria-busy="false" className="space-y-3 overflow-y-auto flex-1 pr-1">
           {events.map(e => (
-            <div key={e.id} className="flex items-start gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5" />
+            <article key={e.id} role="article" aria-label={e.message} className="flex items-start gap-2">
+              <span aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5" />
               <div className="min-w-0">
                 <p className="text-xs text-slate-300 leading-snug">{e.message}</p>
                 <p className="text-[10px] text-slate-600 mt-0.5">{relativeTime(e.timestamp)}</p>
               </div>
-            </div>
+            </article>
           ))}
         </div>
       )}

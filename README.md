@@ -96,7 +96,8 @@ teamhub-app/
 │   ├── activity.ts       # Activity logger using Supabase
 │   └── gameLogic.ts      # Pure TTT functions (checkWinner, isDraw)
 ├── hooks/
-│   └── useLocalStorage.ts # Generic typed localStorage hook (theme + tests)
+│   ├── useLocalStorage.ts  # Generic typed localStorage hook (theme + tests)
+│   └── useFocusTrap.ts     # Focus trap + Escape handler for modal dialogs
 └── __tests__/
     ├── GameLogic.test.ts
     ├── useLocalStorage.test.ts

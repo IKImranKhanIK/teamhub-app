@@ -5,6 +5,7 @@ import notify from "./Toast";
 import { CrewMember } from "@/lib/types";
 import { loadCrew } from "@/lib/storage";
 import { supabase } from "@/lib/supabase";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import { logActivity } from "@/lib/activity";
 import LoadingSpinner from "./LoadingSpinner";
 
@@ -228,6 +229,7 @@ function CreatePollModal({ crew, onClose, onCreate }: { crew: CrewMember[]; onCl
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
   const [creator, setCreator] = useState("");
+  const dialogRef = useFocusTrap<HTMLDivElement>(onClose);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,10 +242,16 @@ function CreatePollModal({ crew, onClose, onCreate }: { crew: CrewMember[]; onCl
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl w-full max-w-md shadow-2xl">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-poll-title"
+        className="bg-[#1a1f2e] border border-[#2d3348] rounded-2xl w-full max-w-md shadow-2xl"
+      >
         <div className="flex items-center justify-between p-6 border-b border-[#2d3348]">
-          <h2 className="text-lg font-semibold text-white">Create Poll</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-xl leading-none">×</button>
+          <h2 id="create-poll-title" className="text-lg font-semibold text-white">Create Poll</h2>
+          <button onClick={onClose} aria-label="Close dialog" className="text-slate-400 hover:text-white text-xl leading-none"><span aria-hidden="true">×</span></button>
         </div>
         <form onSubmit={submit} className="p-6 space-y-4">
           <div>

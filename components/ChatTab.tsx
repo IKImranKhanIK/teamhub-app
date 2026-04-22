@@ -179,7 +179,7 @@ export default function ChatTab() {
         <span className="text-xs text-slate-500">{messages.length} message{messages.length !== 1 ? "s" : ""}</span>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-[#1a1f2e] border border-[#2d3348] rounded-2xl p-4 space-y-4 mb-4">
+      <div role="log" aria-label="Team chat messages" aria-live="polite" aria-atomic="false" className="flex-1 overflow-y-auto bg-[#1a1f2e] border border-[#2d3348] rounded-2xl p-4 space-y-4 mb-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-16 text-slate-500">
             <p className="text-4xl mb-3">💬</p>
@@ -203,6 +203,7 @@ export default function ChatTab() {
                     <button
                       key={emoji}
                       onClick={() => addReaction(msg.id, emoji)}
+                      aria-label={`React with ${emoji}${(msg.reactions[emoji] ?? 0) > 0 ? `, ${msg.reactions[emoji]} reaction${msg.reactions[emoji] !== 1 ? "s" : ""}` : ""}`}
                       className={[
                         "flex items-center gap-1 px-2 py-0.5 rounded-full text-xs transition-all",
                         // Zero-count reactions are hidden (opacity-0) until the message
