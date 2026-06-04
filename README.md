@@ -36,7 +36,7 @@ This app runs on a **self-hosted Supabase stack** on a Raspberry Pi 4 instead of
 
 | Component | Details |
 |-----------|---------|
-| **Hardware** | Raspberry Pi 4 (8GB RAM), Samsung 850 Pro 1TB SSD |
+| **Hardware** | Raspberry Pi 5 (8GB RAM), Samsung 850 Pro 1TB SSD |
 | **Database** | PostgreSQL via self-hosted Supabase (Docker Compose) |
 | **API** | PostgREST + Kong |
 | **Public Access** | Cloudflare Tunnel (auto-reconnects on reboot) |
