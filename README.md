@@ -26,13 +26,31 @@ TeamHub solves the problem of distributed teams feeling disconnected. Everything
 - Error boundaries on every tab — a single tab crash shows a fallback card with a Try-again button instead of breaking the whole app
 - Loading spinner on every tab — prevents a flash of empty content while data loads from the database
 
-All data persists to a **Supabase PostgreSQL database** — shared across all team members in real time, no sign-up needed.
+All data persists to a **self-hosted Supabase PostgreSQL database running on a Raspberry Pi 4** — shared across all team members in real time, no sign-up needed.
+
+---
+
+## 🖥️ Infrastructure
+
+This app runs on a **self-hosted Supabase stack** on a Raspberry Pi 4 instead of Supabase Cloud — completely free, 24/7.
+
+| Component | Details |
+|-----------|---------|
+| **Hardware** | Raspberry Pi 4 (8GB RAM), Samsung 850 Pro 1TB SSD |
+| **Database** | PostgreSQL via self-hosted Supabase (Docker Compose) |
+| **API** | PostgREST + Kong |
+| **Public Access** | Cloudflare Tunnel (auto-reconnects on reboot) |
+| **Frontend** | Deployed on Vercel, connected to Pi via tunnel URL |
+| **Auto-start** | Supabase and tunnel start automatically on Pi boot |
+
+### Why self-hosted?
+The original Supabase Cloud database was disabled after 90 days of inactivity on the free tier. Migrating to a Raspberry Pi eliminates this limitation entirely and keeps hosting costs at zero.
 
 ---
 
 ## How to Run Locally
 
-**Prerequisites:** Node.js 18+, npm, a free [Supabase](https://supabase.com) project
+**Prerequisites:** Node.js 18+, npm, a running Supabase instance (self-hosted or cloud)
 
 ```bash
 # 1. Clone the repository
@@ -43,7 +61,7 @@ cd teamhub-app
 npm install
 
 # 3. Add your Supabase credentials
-echo "NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co" >> .env.local
+echo "NEXT_PUBLIC_SUPABASE_URL=your_supabase_url" >> .env.local
 echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key" >> .env.local
 
 # 4. Start the development server
@@ -119,7 +137,7 @@ All components and utilities are fully typed. Core interfaces (`CrewMember`, `Pl
 Utility-first CSS for rapid UI development. The dark theme uses a consistent custom palette (`#0f1117` background, `#1a1f2e` card surface, `#2d3348` borders). Light mode is implemented as a single CSS override block in `globals.css` targeting Tailwind's escaped arbitrary-value class names directly — no component changes required.
 
 ### Supabase for Persistence
-All eight data slices (crew, kudos, stats, messages, activity, poll, icebreaker, mood) are stored in a Supabase PostgreSQL database. `lib/storage.ts` contains async load/save helpers that map between the app's TypeScript interfaces and the DB column names. Saves are fire-and-forget with `.catch(console.error)` — optimistic UI updates keep interactions feeling instant.
+All eight data slices (crew, kudos, stats, messages, activity, poll, icebreaker, mood) are stored in a self-hosted Supabase PostgreSQL database running on a Raspberry Pi 4. `lib/storage.ts` contains async load/save helpers that map between the app's TypeScript interfaces and the DB column names. Saves are fire-and-forget with `.catch(console.error)` — optimistic UI updates keep interactions feeling instant. The Pi is exposed publicly via a Cloudflare Tunnel, allowing Vercel's serverless functions to reach the database from the cloud.
 
 ### Real-time Chat and Activity Feed
 Chat and Activity use Supabase `postgres_changes` subscriptions. Any insert into the `messages` or `activity` table is broadcast to all connected clients immediately — no polling, no websocket boilerplate. The theme preference (dark/light) is the one thing that intentionally stays in `localStorage` since it is per-device, not per-team.
